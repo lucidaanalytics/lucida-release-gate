@@ -1,0 +1,51 @@
+name: Lucida release gate
+description: Fail a workflow when a Lucida guarded rollout or experiment is unhealthy (guardrail breach, SRM, failed health check).
+author: Lucida
+branding:
+  icon: shield
+  color: purple
+
+inputs:
+  check:
+    description: "What to check: `rollout` (a flag's guarded rollout) or `experiments` (an experiment's health)."
+    required: true
+  target:
+    description: Flag key or id (rollout), or experiment id or name (experiments).
+    required: true
+  api-key:
+    description: Lucida personal or service API key with read access to the project. Pass it from a secret.
+    required: true
+  project:
+    description: Lucida project id.
+    required: true
+  api-url:
+    description: Lucida API base URL (the lc-api origin of your instance, e.g. https://lucida.example.com).
+    required: true
+  allow-missing:
+    description: "rollout only: pass when the flag has no guarded rollout."
+    required: false
+    default: "false"
+
+outputs:
+  passed:
+    description: "`true` when every check passed."
+    value: ${{ steps.gate.outputs.passed }}
+  report:
+    description: The JSON report printed by `lucida <check> check --format json`.
+    value: ${{ steps.gate.outputs.report }}
+
+runs:
+  using: composite
+  steps:
+    - id: gate
+      shell: bash
+      env:
+        LC_API_URL: ${{ inputs.api-url }}
+        LC_API_KEY: ${{ inputs.api-key }}
+        LC_PROJECT_ID: ${{ inputs.project }}
+        GATE_CHECK: ${{ inputs.check }}
+        GATE_TARGET: ${{ inputs.target }}
+        GATE_ALLOW_MISSING: ${{ inputs.allow-missing }}
+      # Same checks as `lucida rollout check` / `lucida experiments check`, over the public API with curl + jq
+      # (both preinstalled on GitHub runners), so no container image is needed.
+      run: bash "$GITHUB_ACTION_PATH/gate.sh"
